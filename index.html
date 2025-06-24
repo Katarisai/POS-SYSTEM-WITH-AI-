@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart POS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <style>
+    body {
+      background: linear-gradient(135deg, #6ee7b7, #3b82f6);
+      min-height: 100vh;
+      font-family: 'Arial', sans-serif;
+    }
+    .card {
+      animation: slideIn 0.5s ease-out;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .item-0 { background-color: #fef08a; } /* Brighter Amber */
+    .item-1 { background-color: #bfdbfe; } /* Brighter Blue */
+    .item-2 { background-color: #a7f3d0; } /* Brighter Green */
+    .item-3 { background-color: #e9d5ff; } /* Brighter Purple */
+    .animate-pulse { animation: pulse 1.5s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .cart-logo {
+      font-size: 5rem; /* Large icon size */
+      color: #1f2937; /* Dark gray for contrast */
+      animation: bounce 1s infinite;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 200px;
+      height: 100%;
+      background-color: #1f2937; /* Dark gray */
+      color: white;
+      padding-top: 2rem;
+    }
+    .sidebar a {
+      display: block;
+      padding: 1rem;
+      color: white;
+      text-decoration: none;
+      transition: background 0.3s;
+    }
+    .sidebar a:hover {
+      background-color: #374151; /* Lighter gray on hover */
+    }
+    .main-content {
+      margin-left: 200px; /* Space for sidebar */
+      padding: 1rem;
+    }
+    .content-section {
+      display: none; /* Hide all sections by default */
+    }
+    .content-section.active {
+      display: block; /* Show active section */
+    }
+    .quantity-controls button {
+      width: 30px;
+      height: 30px;
+      font-size: 16px;
+      margin: 0 5px;
+      cursor: pointer;
+    }
+    .quantity-controls input {
+      width: 50px;
+      text-align: center;
+      padding: 2px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background-color: #4CAF50;
+      color: white;
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      display: none;
+      z-index: 1000;
+      font-size: 1.1rem;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
+    }
+    .notification.show {
+      display: block;
+      opacity: 1;
+    }
+    .notification.error {
+      background-color: #EF4444; /* Red for error */
+    }
+    /* Order Placed Animation Styles */
+    .order-placed-animation {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #6ee7b7, #3b82f6);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 1;
+      transition: opacity 0.5s ease-out;
+    }
+    .order-placed-animation.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .checkmark {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      display: block;
+      stroke-width: 2;
+      stroke: #fff;
+      stroke-miterlimit: 10;
+      box-shadow: inset 0px 0px 0px #4CAF50;
+      animation: fill 0.4s ease-in-out 0.4s forwards, scale 0.3s ease-in-out 0.9s both;
+    }
+    .checkmark__circle {
+      stroke-dasharray: 166;
+      stroke-dashoffset: 166;
+      stroke-width: 2;
+      stroke-miterlimit: 10;
+      stroke: #4CAF50;
+      fill: none;
+      animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+    }
+    .checkmark__check {
+      transform-origin: 50% 50%;
+      stroke-dasharray: 48;
+      stroke-dashoffset: 48;
+      animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+    }
+    @keyframes stroke {
+      100% { stroke-dashoffset: 0; }
+    }
+    @keyframes scale {
+      0%, 100% { transform: none; }
+      50% { transform: scale3d(1.1, 1.1, 1); }
+    }
+    @keyframes fill {
+      100% { box-shadow: inset 0px 0px 0px 30px #4CAF50; }
+    }
+    .fade-in {
+      opacity: 0;
+      animation: fadeIn 1s ease-in forwards;
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Notification Area -->
+  <div id="notification" class="notification"></div>
+
+  <!-- Order Placed Animation -->
+  <div id="order-placed-animation" class="order-placed-animation hidden">
+    <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+      <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
+      <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+    </svg>
+    <h1 class="text-4xl font-bold text-white mt-4 fade-in">Order Placed!</h1>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h2 class="text-xl font-bold text-center mb-6">Smart POS</h2>
+    <a href="#" onclick="showSection('home'); return false;"><i class="fa-solid fa-home mr-2"></i> Home</a>
+    <a href="#" onclick="showSection('products'); return false;"><i class="fa-solid fa-box mr-2"></i> Products</a>
+    <a href="#" onclick="showSection('orders'); return false;"><i class="fa-solid fa-receipt mr-2"></i> Orders</a>
+    <a href="#" onclick="showSection('customers'); return false;"><i class="fa-solid fa-users mr-2"></i> Customers</a>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Home Section (Checkout, Cart, Products, Order Details) -->
+    <div id="home-section" class="content-section active">
+      <h1 class="text-3xl font-bold text-center text-white mb-6">
+        <i class="fa-solid fa-shopping-cart mr-2"></i> Smart POS
+      </h1>
+
+      <!-- Checkout Form -->
+      <div id="checkout-section" class="card bg-white rounded-xl shadow-2xl p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4"><i class="fa-solid fa-credit-card mr-2"></i> Checkout</h2>
+        <form id="checkout-form" action="javascript:void(0);" method="POST">
+          <div class="mb-4">
+            <label class="block text-gray-600">Customer Name</label>
+            <input id="customer-name" type="text" class="w-full p-2 border rounded-lg" required>
+          </div>
+          <div class="mb-4">
+            <label class="block text-gray-600">Phone (e.g., +919876543210)</label>
+            <input id="customer-phone" type="tel" class="w-full p-2 border rounded-lg" required>
+            <p class="text-sm text-gray-500 mt-1">Please message @SmartPOSBot with /start and provide your phone number to receive notifications.</p>
+          </div>
+          <div class="mb-4">
+            <label class="block text-gray-600">Promo Code</label>
+            <input id="promo-code" type="text" class="w-full p-2 border rounded-lg" placeholder="e.g., SAVE10">
+          </div>
+          <div class="mb-4">
+            <label class="block text-gray-600">Payment Type</label>
+            <select id="payment-type" class="w-full p-2 border rounded-lg">
+              <option value="Cash">Cash</option>
+              <option value="Card">Card</option>
+              <option value="UPI">UPI</option>
+            </select>
+          </div>
+          <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700">
+            <i class="fa-solid fa-check mr-2"></i> Checkout
+          </button>
+        </form>
+        <div id="checkout-error" class="text-red-600 text-center mt-4 hidden"></div>
+      </div>
+
+      <!-- Cart -->
+      <div id="cart-section" class="card bg-white rounded-xl shadow-2xl p-6 mb-6">
+        <div class="text-center mb-4">
+          <i class="fa-solid fa-cart-shopping cart-logo"></i>
+        </div>
+        <h2 class="text-xl font-semibold text-gray-700 mb-4"><i class="fa-solid fa-cart-shopping mr-2"></i> Cart</h2>
+        <ul id="cart-items" class="space-y-2 mb-4"></ul>
+        <div class="text-gray-600">
+          <p>Subtotal: ₹<span id="subtotal">0.00</span></p>
+          <p>Tax (10%): ₹<span id="tax">0.00</span></p>
+          <p>Discount: ₹<span id="discount">0.00</span></p>
+          <p class="text-lg font-bold text-gray-800">Grand Total: ₹<span id="grand-total">0.00</span></p>
+        </div>
+      </div>
+
+      <!-- Product Search and List (in Home) -->
+      <div id="products-section-home" class="card bg-white rounded-xl shadow-2xl p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4"><i class="fa-solid fa-box mr-2"></i> Products</h2>
+        <input id="search-home" type="text" placeholder="Search products..." class="w-full p-2 mb-4 border rounded-lg" oninput="fetchProducts('home')">
+        <div id="loading-home" class="text-center text-gray-500 animate-pulse hidden">
+          <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading products...
+        </div>
+        <div id="products-list-home" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+        <div id="products-error-home" class="text-red-600 text-center mt-4 hidden"></div>
+      </div>
+
+      <!-- Order Details Section (after Done button is clicked) -->
+      <div id="order-details-section" class="card bg-white rounded-xl shadow-2xl p-6 mb-6 hidden">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4"><i class="fa-solid fa-receipt mr-2"></i> Order Details</h2>
+        <div id="order-details-content" class="space-y-2"></div>
+        <div class="text-center mt-4">
+          <button id="start-new-order" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700">
+            <i class="fa-solid fa-plus mr-2"></i> Start New Order
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Products Section -->
+    <div id="products-section" class="content-section">
+      <h1 class="text-3xl font-bold text-center text-white mb-6">
+        <i class="fa-solid fa-box mr-2"></i> Products
+      </h1>
+      <div class="card bg-white rounded-xl shadow-2xl p-6">
+        <input id="search-products" type="text" placeholder="Search products..." class="w-full p-2 mb-4 border rounded-lg" oninput="fetchProducts('products')">
+        <div id="loading-products" class="text-center text-gray-500 animate-pulse hidden">
+          <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading products...
+        </div>
+        <div id="products-list-products" class="space-y-4"></div>
+        <div id="products-error-products" class="text-red-600 text-center mt-4 hidden"></div>
+      </div>
+    </div>
+
+    <!-- Orders Section -->
+    <div id="orders-section" class="content-section">
+      <h1 class="text-3xl font-bold text-center text-white mb-6">
+        <i class="fa-solid fa-receipt mr-2"></i> Orders
+      </h1>
+      <div class="card bg-white rounded-xl shadow-2xl p-6">
+        <div id="loading-orders" class="text-center text-gray-500 animate-pulse hidden">
+          <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading orders...
+        </div>
+        <div id="orders-list" class="space-y-4"></div>
+        <div id="orders-error" class="text-red-600 text-center mt-4 hidden"></div>
+      </div>
+    </div>
+
+    <!-- Customers Section -->
+    <div id="customers-section" class="content-section">
+      <h1 class="text-3xl font-bold text-center text-white mb-6">
+        <i class="fa-solid fa-users mr-2"></i> Customers
+      </h1>
+      <div class="card bg-white rounded-xl shadow-2xl p-6">
+        <div id="loading-customers" class="text-center text-gray-500 animate-pulse hidden">
+          <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading customers...
+        </div>
+        <div id="customers-list" class="space-y-4"></div>
+        <div id="customers-error" class="text-red-600 text-center mt-4 hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let cart = [];
+    let lastOrder = null; // Store the last order details
+
+    // Show specific section
+    function showSection(sectionId) {
+      console.log(`Showing section: ${sectionId}`); // Debug
+      document.querySelectorAll('.content-section').forEach(section => {
+        section.classList.remove('active');
+      });
+      document.getElementById(`${sectionId}-section`).classList.add('active');
+
+      if (sectionId === 'home') {
+        fetchProducts('home');
+        // Show checkout, cart, and products sections
+        document.getElementById('checkout-section').classList.remove('hidden');
+        document.getElementById('cart-section').classList.remove('hidden');
+        document.getElementById('products-section-home').classList.remove('hidden');
+        document.getElementById('order-details-section').classList.add('hidden');
+      } else if (sectionId === 'products') {
+        fetchProducts('products');
+      } else if (sectionId === 'orders') {
+        fetchOrders();
+      } else if (sectionId === 'customers') {
+        fetchCustomers();
+      }
+    }
+
+    // Show notification
+    function showNotification(message, isError = false, includeDoneButton = false) {
+      console.log(`Showing notification: ${message}`); // Debug
+      const notification = document.getElementById('notification');
+      if (includeDoneButton) {
+        notification.innerHTML = `
+          ${message}
+          <button id="done-button" class="ml-4 bg-white text-green-600 font-semibold py-1 px-2 rounded hover:bg-gray-100">
+            Done
+          </button>
+        `;
+      } else {
+        notification.textContent = message;
+      }
+      notification.classList.add('show');
+      if (isError) {
+        notification.classList.add('error');
+      } else {
+        notification.classList.remove('error');
+      }
+      if (!includeDoneButton) {
+        setTimeout(() => {
+          notification.classList.remove('show');
+        }, 3000);
+      }
+      // Add event listener for Done button if present
+      const doneButton = document.getElementById('done-button');
+      if (doneButton) {
+        doneButton.addEventListener('click', () => {
+          // Hide animation and notification
+          document.getElementById('order-placed-animation').classList.add('hidden');
+          notification.classList.remove('show');
+          // Show order details
+          showOrderDetails();
+        });
+      }
+    }
+
+    // Date formatting function
+    function formatDate(date) {
+      const optionsTime = { hour: '2-digit', minute: '2-digit', hour12: true };
+      const optionsDay = { weekday: 'long' };
+      const optionsDate = { month: 'long', day: 'numeric', year: 'numeric' };
+
+      const time = date.toLocaleTimeString('en-US', optionsTime).replace(':', ':');
+      const day = date.toLocaleDateString('en-US', optionsDay);
+      const datePart = date.toLocaleDateString('en-US', optionsDate);
+
+      return `${time} IST on ${day}, ${datePart}`;
+    }
+
+    // Fetch products
+    async function fetchProducts(section) {
+      const searchInput = document.getElementById(`search-${section}`);
+      const search = searchInput ? searchInput.value : '';
+      const productsList = document.getElementById(`products-list-${section}`);
+      const loading = document.getElementById(`loading-${section}`);
+      const errorDiv = document.getElementById(`products-error-${section}`);
+
+      loading.classList.remove('hidden');
+      productsList.innerHTML = '';
+      errorDiv.classList.add('hidden');
+
+      try {
+        const res = await fetch(`/api/products?search=${search}`);
+        if (!res.ok) throw new Error('Failed to fetch products');
+        const products = await res.json();
+        console.log(`Fetched products (${section}):`, products); // Debug
+
+        if (products.length === 0) {
+          productsList.innerHTML = '<p class="text-gray-600 text-center">No products found.</p>';
+        } else {
+          products.forEach((product, index) => {
+            if (section === 'home') {
+              const cartItem = cart.find(item => item.productId === product._id);
+              const quantityInCart = cartItem ? cartItem.quantity : 0;
+              const div = document.createElement('div');
+              div.className = `p-4 rounded-lg item-${index % 4} flex justify-between items-center`;
+              div.innerHTML = `
+                <div>
+                  <p class="font-semibold">${product.name}</p>
+                  <p class="text-gray-600">₹${product.price.toFixed(2)} | Stock: ${product.stock}</p>
+                </div>
+                <div class="quantity-controls">
+                  <button class="bg-gray-300 hover:bg-gray-400 rounded" onclick="updateQuantity('${product._id}', -1, ${product.stock})">
+                    <i class="fa-solid fa-minus"></i>
+                  </button>
+                  <input type="number" min="0" max="${product.stock}" value="${quantityInCart}" class="quantity" data-id="${product._id}" readonly>
+                  <button class="bg-green-600 text-white hover:bg-green-700 rounded" onclick="updateQuantity('${product._id}', 1, ${product.stock})">
+                    <i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              `;
+              productsList.appendChild(div);
+            } else {
+              const div = document.createElement('div');
+              div.className = `p-4 rounded-lg item-${index % 4}`;
+              div.innerHTML = `
+                <p class="font-semibold">${product.name}</p>
+                <p class="text-gray-600">Price: ₹${product.price.toFixed(2)}</p>
+                <p class="text-gray-600">Stock: ${product.stock}</p>
+                <p class="text-gray-600">Category: ${product.category || 'N/A'}</p>
+              `;
+              productsList.appendChild(div);
+            }
+          });
+        }
+      } catch (error) {
+        console.error(`Error fetching products (${section}):`, error.message);
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.classList.remove('hidden');
+      } finally {
+        loading.classList.add('hidden');
+      }
+    }
+
+    // Update quantity in the cart
+    function updateQuantity(productId, change, maxStock) {
+      const quantityInput = document.querySelector(`.quantity[data-id="${productId}"]`);
+      let currentQuantity = parseInt(quantityInput.value) || 0;
+      const newQuantity = Math.max(0, Math.min(maxStock, currentQuantity + change));
+      quantityInput.value = newQuantity;
+
+      const product = document.querySelector(`.quantity[data-id="${productId}"]`);
+      const name = product.parentElement.previousElementSibling.querySelector('p.font-semibold').textContent;
+      const priceText = product.parentElement.previousElementSibling.querySelector('p.text-gray-600').textContent;
+      const price = parseFloat(priceText.match(/₹([\d.]+)/)[1]);
+
+      let cartItem = cart.find(item => item.productId === productId);
+      if (newQuantity > 0) {
+        if (cartItem) {
+          cartItem.quantity = newQuantity;
+        } else {
+          cart.push({ productId, name, price, quantity: newQuantity });
+        }
+      } else {
+        cart = cart.filter(item => item.productId !== productId);
+      }
+
+      updateCart();
+    }
+
+    // Fetch orders
+    async function fetchOrders() {
+      const ordersList = document.getElementById('orders-list');
+      const loading = document.getElementById('loading-orders');
+      const errorDiv = document.getElementById('orders-error');
+
+      loading.classList.remove('hidden');
+      ordersList.innerHTML = '';
+      errorDiv.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/orders');
+        if (!res.ok) throw new Error('Failed to fetch orders');
+        const orders = await res.json();
+        console.log('Fetched orders:', orders); // Debug
+
+        if (orders.length === 0) {
+          ordersList.innerHTML = '<p class="text-gray-600 text-center">No orders found.</p>';
+        } else {
+          orders.forEach((order, index) => {
+            const itemsList = order.items.map(item =>
+              `${item.name} - ₹${item.price.toFixed(2)} x ${item.quantity} = ₹${(item.quantity * item.price).toFixed(2)}`
+            ).join('<br>');
+            const div = document.createElement('div');
+            div.className = `p-4 rounded-lg item-${index % 4}`;
+            div.innerHTML = `
+              <p class="font-semibold">Order ID: ${order._id}</p>
+              <p class="text-gray-600">Date: ${formatDate(new Date(order.createdAt))}</p>
+              <p class="text-gray-600">Customer: ${order.customerName}</p>
+              <p class="text-gray-600">Phone: ${order.customerPhone}</p>
+              <p class="text-gray-600">Items:<br>${itemsList}</p>
+              <p class="text-gray-600">Subtotal: ₹${order.total.toFixed(2)}</p>
+              <p class="text-gray-600">Tax: ₹${order.tax.toFixed(2)}</p>
+              <p class="text-gray-600">Discount: ₹${order.discount.toFixed(2)}</p>
+              <p class="text-gray-600">Grand Total: ₹${order.grandTotal.toFixed(2)}</p>
+              <p class="text-gray-600">Payment Type: ${order.paymentType}</p>
+              ${order.promoCode ? `<p class="text-gray-600">Promo Code: ${order.promoCode}</p>` : ''}
+              <a href="/order/${order._id}" class="text-blue-600 hover:underline">View Order</a>
+              <a href="/bills/bill_${order._id}.pdf" class="text-blue-600 hover:underline ml-4">View Bill PDF</a>
+            `;
+            ordersList.appendChild(div);
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching orders:', error.message);
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.classList.remove('hidden');
+      } finally {
+        loading.classList.add('hidden');
+      }
+    }
+
+    // Fetch customers
+    async function fetchCustomers() {
+      const customersList = document.getElementById('customers-list');
+      const loading = document.getElementById('loading-customers');
+      const errorDiv = document.getElementById('customers-error');
+
+      loading.classList.remove('hidden');
+      customersList.innerHTML = '';
+      errorDiv.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/customers');
+        if (!res.ok) throw new Error('Failed to fetch customers');
+        const customers = await res.json();
+        console.log('Fetched customers:', customers); // Debug
+
+        if (customers.length === 0) {
+          customersList.innerHTML = '<p class="text-gray-600 text-center">No customers found.</p>';
+        } else {
+          customers.forEach((customer, index) => {
+            const div = document.createElement('div');
+            div.className = `p-4 rounded-lg item-${index % 4}`;
+            div.innerHTML = `
+              <p class="font-semibold">${customer.name}</p>
+              <p class="text-gray-600">Phone: ${customer.phone}</p>
+              <p class="text-gray-600">Total Spent: ₹${customer.totalSpent.toFixed(2)}</p>
+            `;
+            customersList.appendChild(div);
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching customers:', error.message);
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.classList.remove('hidden');
+      } finally {
+        loading.classList.add('hidden');
+      }
+    }
+
+    // Update cart display
+    function updateCart() {
+      const cartItems = document.getElementById('cart-items');
+      cartItems.innerHTML = '';
+      let subtotal = 0;
+
+      cart.forEach((item, index) => {
+        const li = document.createElement('li');
+        li.className = `p-2 rounded-lg item-${index % 4} flex justify-between`;
+        li.innerHTML = `
+          <span>${item.quantity} x ${item.name} - ₹${(item.price * item.quantity).toFixed(2)}</span>
+          <button class="text-red-600 hover:text-red-800 remove-from-cart" data-id="${item.productId}">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        `;
+        cartItems.appendChild(li);
+        subtotal += item.price * item.quantity;
+      });
+
+      const taxRate = 0.1;
+      const tax = subtotal * taxRate;
+      const discount = document.getElementById('promo-code').value === 'SAVE10' ? 10 : 0;
+      const grandTotal = subtotal + tax - discount;
+
+      document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+      document.getElementById('tax').textContent = tax.toFixed(2);
+      document.getElementById('discount').textContent = discount.toFixed(2);
+      document.getElementById('grand-total').textContent = grandTotal.toFixed(2);
+
+      // Add event listeners for "Remove from Cart" buttons
+      document.querySelectorAll('.remove-from-cart').forEach(button => {
+        button.addEventListener('click', (e) => {
+          const productId = e.target.closest('button').dataset.id;
+          cart = cart.filter(item => item.productId !== productId);
+          const quantityInput = document.querySelector(`.quantity[data-id="${productId}"]`);
+          if (quantityInput) quantityInput.value = 0;
+          updateCart();
+        });
+      });
+    }
+
+    // Show order details after Done button is clicked
+    function showOrderDetails() {
+      if (!lastOrder) return;
+
+      const order = lastOrder.order;
+      const orderDetailsContent = document.getElementById('order-details-content');
+      const itemsList = order.items.map(item =>
+        `${item.name} - ₹${item.price.toFixed(2)} x ${item.quantity} = ₹${(item.quantity * item.price).toFixed(2)}`
+      ).join('<br>');
+
+      orderDetailsContent.innerHTML = `
+        <p class="font-semibold">Order ID: ${order._id}</p>
+        <p class="text-gray-600">Date: ${formatDate(new Date(order.createdAt))}</p>
+        <p class="text-gray-600">Customer: ${order.customerName}</p>
+        <p class="text-gray-600">Phone: ${order.customerPhone}</p>
+        <p class="text-gray-600">Items:<br>${itemsList}</p>
+        <p class="text-gray-600">Subtotal: ₹${order.total.toFixed(2)}</p>
+        <p class="text-gray-600">Tax: ₹${order.tax.toFixed(2)}</p>
+        <p class="text-gray-600">Discount: ₹${order.discount.toFixed(2)}</p>
+        <p class="text-gray-600">Grand Total: ₹${order.grandTotal.toFixed(2)}</p>
+        <p class="text-gray-600">Payment Type: ${order.paymentType}</p>
+        ${order.promoCode ? `<p class="text-gray-600">Promo Code: ${order.promoCode}</p>` : ''}
+        <a href="/order/${order._id}" class="text-blue-600 hover:underline">View Order</a>
+        <a href="/bills/bill_${order._id}.pdf" class="text-blue-600 hover:underline ml-4">View Bill PDF</a>
+      `;
+
+      // Hide checkout, cart, and products sections; show order details
+      document.getElementById('checkout-section').classList.add('hidden');
+      document.getElementById('cart-section').classList.add('hidden');
+      document.getElementById('products-section-home').classList.add('hidden');
+      document.getElementById('order-details-section').classList.remove('hidden');
+
+      // Add event listener for Start New Order button
+      document.getElementById('start-new-order').addEventListener('click', () => {
+        showSection('home');
+      });
+    }
+
+    // Handle checkout
+    document.getElementById('checkout-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      console.log('Checkout form submitted'); // Debug
+      const errorDiv = document.getElementById('checkout-error');
+      errorDiv.classList.add('hidden');
+
+      if (cart.length === 0) {
+        errorDiv.textContent = 'Cart is empty. Add some products to checkout.';
+        errorDiv.classList.remove('hidden');
+        return;
+      }
+
+      const customerName = document.getElementById('customer-name').value;
+      const customerPhone = document.getElementById('customer-phone').value;
+      const promoCode = document.getElementById('promo-code').value;
+      const paymentType = document.getElementById('payment-type').value;
+
+      const orderData = {
+        items: cart,
+        taxRate: 0.1,
+        discount: promoCode === 'SAVE10' ? 10 : 0,
+        paymentType,
+        promoCode,
+        customerName,
+        customerPhone
+      };
+
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderData)
+        });
+        if (!res.ok) throw new Error('Failed to place order');
+        const data = await res.json();
+        console.log('Order response:', data); // Debug
+
+        // Store the order data
+        lastOrder = { order: data.order };
+
+        // Show the Order Placed animation
+        const orderPlacedAnimation = document.getElementById('order-placed-animation');
+        orderPlacedAnimation.classList.remove('hidden');
+
+        // Show notifications
+        showNotification('Checkout Successful!');
+        setTimeout(() => {
+          showNotification('Bill Generated Successfully!', false, true); // Include Done button
+        }, 1000);
+
+        // Show Telegram error notification if applicable
+        if (!data.telegramResult.customerSuccess) {
+          setTimeout(() => {
+            showNotification(`Telegram Notification Failed: ${data.telegramResult.customerError}`, true);
+          }, 2000);
+        }
+
+        // Clear the cart and reset the form
+        cart = [];
+        updateCart();
+        document.getElementById('checkout-form').reset();
+        document.querySelectorAll('.quantity').forEach(input => input.value = 0);
+      } catch (error) {
+        console.error('Error placing order:', error.message);
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.classList.remove('hidden');
+      }
+    });
+
+    // Initial fetch
+    fetchProducts('home');
+  </script>
+</body>
+</html>
